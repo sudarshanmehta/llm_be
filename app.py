@@ -1,6 +1,7 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request  # Correct import for 'request'
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -24,14 +25,35 @@ class Tasks(db.Model):
 @app.route('/tasks', methods=['GET'])
 def get_tasks():
     try:
-        # Retrieve data from the Tasks table
         tasks = Tasks.query.all()
-
-        # Convert data to a list of dictionaries
         task_list = [{'Task': task.task, 'ID': task.task_id, 'Description': task.description} for task in tasks]
-
-        # Return data as JSON
         return jsonify({'tasks': task_list})
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/models', methods=['GET'])
+def get_models():
+    try:
+        # Extract the 'filter' and 'author' query parameters if provided
+        filter_param = request.args.get('filter')
+        author_param = request.args.get('author')
+
+        # Construct the API URL with the parameters if they exist
+        api_url = 'https://huggingface.co/api/models?'
+        if filter_param:
+            api_url += f'filter={filter_param}&'
+        if author_param:
+            api_url += f'author={author_param}'
+
+        # Make a request to the Hugging Face API with the constructed URL
+        response = requests.get(api_url)
+
+        if response.status_code == 200:
+            models_data = response.json()
+            return jsonify(models_data)
+        else:
+            return jsonify({'error': f'Request failed with status code {response.status_code}'})
 
     except Exception as e:
         return jsonify({'error': str(e)})
