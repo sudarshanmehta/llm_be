@@ -1,6 +1,7 @@
-from flask import Flask, jsonify, request  # Correct import for 'request'
+from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from sqlalchemy import text
 import requests
 
 app = Flask(__name__)
@@ -54,6 +55,30 @@ def get_models():
             return jsonify(models_data)
         else:
             return jsonify({'error': f'Request failed with status code {response.status_code}'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/datasets', methods=['GET'])
+def get_datasets():
+    try:
+        # Extract task_id from the query parameters
+        task_id = request.args.get('task_id')
+
+        if task_id:
+            # Query the Datasets table for dataset_name based on task_id
+            query = text("SELECT dataset_name FROM Datasets WHERE task_id = :task_id")
+           
+            result = db.session.execute(query, {'task_id': task_id})
+            dataset_names = [row[0] for row in result.fetchall()]
+
+            if dataset_names:
+                return jsonify({'datasets': dataset_names})
+            else:
+                return jsonify({'error': 'Dataset not found for the given task_id'})
+
+        else:
+            return jsonify({'error': 'task_id parameter is required'})
 
     except Exception as e:
         return jsonify({'error': str(e)})
