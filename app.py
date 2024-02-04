@@ -24,6 +24,17 @@ class Tasks(db.Model):
     def __repr__(self):
         return '<Task %r>' % self.task
 
+class Hyperparameters(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    model_id = db.Column(db.String)
+    hyper_param = db.Column(db.String)
+    hyper_value = db.Column(db.String)
+
+    def __init__(self, model_id, hyper_param, hyper_value):
+        self.model_id = model_id
+        self.hyper_param = hyper_param
+        self.hyper_value = hyper_value
+
 @app.route('/tasks', methods=['GET'])
 def get_tasks():
     try:
@@ -84,6 +95,7 @@ def get_datasets():
     except Exception as e:
         return jsonify({'error': str(e)})
 
+
 @app.route('/train_model', methods=['POST'])
 def train_model():
     try:
@@ -108,6 +120,35 @@ def train_model():
         seq2seq_trainer_instance.train_model()
 
         return jsonify({'success': f'Training model with dataset: {dataset}, model_id: {model_id}, training_args: {training_args}'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+
+@app.route('/hyperparameters', methods=['GET'])
+def get_hyperparameters():
+    try:
+        # Extract the 'model_id' parameter from the request
+        model_id = request.args.get('model_id')
+
+        if model_id:
+            # Query the Hyperparameters table for all entries with the specified model_id
+            hyperparameters_data = Hyperparameters.query.filter_by(model_id = model_id).all()
+
+            if hyperparameters_data:
+                # If the model_id exists, return its hyperparameters
+                hyperparameters_list = [{'model_id': hyper.model_id,
+                                        'hyper_param': hyper.hyper_param,
+                                        'hyper_value': hyper.hyper_value} for hyper in hyperparameters_data]
+            else:
+                # If the model_id does not exist, return standard hyperparameters
+                standard_hyperparameters_data = Hyperparameters.query.filter_by(model_id = 'standard').all()
+                hyperparameters_list = [{'model_id': standard_hyperparameters.model_id,
+                                'hyper_param': standard_hyperparameters.hyper_param,
+                                'hyper_value': standard_hyperparameters.hyper_value}for standard_hyperparameters in standard_hyperparameters_data]
+            return jsonify(hyperparameters_list)
+        else:
+            return jsonify({'error': 'model_id parameter is required'})
 
     except Exception as e:
         return jsonify({'error': str(e)})
