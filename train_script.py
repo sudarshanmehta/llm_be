@@ -1,3 +1,4 @@
+!pip install datasets evaluate
 from datasets import load_dataset
 import pandas as pd
 from random import randrange
