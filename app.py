@@ -105,21 +105,18 @@ def train_model():
         # Extract required parameters
         dataset = data.get('dataset')
         model_id = data.get('model_id')
-        training_args = data.get('training_args')
+        #training_args = data.get('training_args')
 
         # Check if all required parameters are provided
-        if not dataset or not model_id or not training_args:
+        if not dataset or not model_id:
             return jsonify({'error': 'Missing required parameters. Please provide dataset, model_id, and training_args'})
 
         # Create an instance of Seq2SeqTrainerWrapper if not already created
-        if seq2seq_trainer_instance is None:
-            seq2seq_trainer_instance = Seq2SeqTrainerWrapper(dataset_id="samsum", model_id="google/flan-t5-base")
-        else: 
-            seq2seq_trainer_instance = Seq2SeqTrainerWrapper(dataset_id=dataset, model_id=model_id, training_args = training_args)
+        seq2seq_trainer_instance = Seq2SeqTrainerWrapper(dataset_id=dataset, model_id=model_id, training_args=None)
         # Trigger training using the exposed instance
         seq2seq_trainer_instance.train_model()
 
-        return jsonify({'success': f'Training model with dataset: {dataset}, model_id: {model_id}, training_args: {training_args}'})
+        return jsonify({'success': f'Training model with dataset'})
     
     except Exception as e:
         return jsonify({'error': str(e)})
