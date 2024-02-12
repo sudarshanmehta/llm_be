@@ -66,7 +66,7 @@ This is a Python-Flask based backend for developing and training Large Language 
 | description  | String  | Task description        |
 
 
-## Datasets Table
+### Datasets Table
 
 | Column Name | Data Type | Description                              |
 |-------------|-----------|------------------------------------------|
@@ -74,7 +74,8 @@ This is a Python-Flask based backend for developing and training Large Language 
 | task_id     | String    | Unique identifier for the task           |
 | dataset_name| String    | Name of the dataset                      |
 
-## Hyperparameters Table Structure
+
+### Hyperparameters Table Structure
 
 The `Hyperparameters` table stores hyperparameters for different models.
 
