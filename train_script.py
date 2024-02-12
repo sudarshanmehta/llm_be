@@ -116,7 +116,7 @@ class Seq2SeqTrainerWrapper:
             trainer.train()
 
             # You might want to save the trained model or perform other post-training tasks here
-            tokenized_dataset = self.dataset.map(preprocess_function, batched=True, remove_columns=["dialogue", "summary", "id"])
+            tokenized_dataset = self.dataset.map(self.preprocess_function, batched=True, remove_columns=["dialogue", "summary", "id"])
             print(f"Keys of tokenized dataset: {list(tokenized_dataset['train'].features)}")
 
 
@@ -197,7 +197,7 @@ class Seq2SeqTrainerWrapper:
         decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
 
         # Some simple post-processing
-        decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
+        decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
 
         result = evaluate.load("rouge").compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
         result = {k: round(v * 100, 4) for k, v in result.items()}
