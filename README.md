@@ -103,5 +103,3 @@ Example entry:
 | 11 | flan-t5-small       | EPOCHS           | 5           |
 | 12 | flan-t5-small       | TRAIN_BATCH_SIZE | 8           |
 | 13 | flan-t5-small       | VALID_BATCH_SIZE | 8           |
-
-```
