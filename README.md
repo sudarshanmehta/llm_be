@@ -47,11 +47,12 @@ This is a Python-Flask based backend for developing and training Large Language 
 
 2. Access the API endpoints:
    - Open your web browser or use tools like Postman to access the endpoints.
-   - Example endpoints:
+   - Available endpoints:
      - `GET /tasks`: Get a list of tasks.
-     - `POST /tasks`: Create a new task.
-     - `GET /models`: Get a list of models.
-     - `GET /datasets`: Get a list of datasets.
+     - `GET /datasets`: Get a list of available dataset for a given classification.
+     - `GET /models`: Get a list of models for a given classification.
+     - `GET /hyperparameters`: Get a list of hyperparameters for a given model.
+     - `POST /train_model`: Starts training of selected model with input as model_id, dataset-id and hyperparameter (array).
 
 ## Table Structures
 
