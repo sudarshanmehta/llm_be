@@ -39,11 +39,14 @@ def get_models():
             # If there are no entries, fetch data from the Hugging Face API
            
             api_url = 'https://huggingface.co/api/models?'
-
             if filter_param:
                 api_url += f'filter={filter_param}&'
+                api_url += f'sort=downloads&'
+                api_url += f'direction=-1&'
+                api_url += f'limit=10&'
             if author_param:
                 api_url += f'author={author_param}'
+
 
             response = requests.get(api_url)
 
