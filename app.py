@@ -59,12 +59,8 @@ def get_models():
                                        hits=model['downloads'])
                     db.session.add(new_model)
                     model_data.append(new_model)
-            try:
+            
                 db.session.commit()
-            except Exception as e: 
-                print(e)
-                db.session.rollback()
-
                 top_models = Models.query.filter_by(task_id = taskid).order_by(Models.hits.desc()).limit(10).all()
                 if not top_models:
                     top_models = model_data
@@ -80,7 +76,7 @@ def get_models():
 
                 return jsonify(res_data)
             else:
-                return jsonify({'error': f'Request failed with status code {response.status_code}'})
+                    return jsonify({'error': f'Request failed with status code {response.status_code}'})
 
     except Exception as e:
         return jsonify({'error': str(e)})
