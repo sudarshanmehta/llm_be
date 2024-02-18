@@ -2,7 +2,6 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from sqlalchemy import text
 import requests
-from pynvml import *
 from models import *
 from util import *
 
