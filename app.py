@@ -1,38 +1,15 @@
 from flask import Flask, jsonify, request
-from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from sqlalchemy import text
 import requests
+from pynvml import *
+from models import *
+from util import *
 
 app = Flask(__name__)
 CORS(app)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///llm.db"
-db = SQLAlchemy(app)
-
-class Tasks(db.Model):
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    task_id = db.Column(db.String)
-    task = db.Column(db.String)
-    description = db.Column(db.String)
-
-    def __init__(self, task_id, task, description):
-        self.task_id = task_id
-        self.task = task
-        self.description = description
-
-    def __repr__(self):
-        return '<Task %r>' % self.task
-
-class Hyperparameters(db.Model):
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    model_id = db.Column(db.String)
-    hyper_param = db.Column(db.String)
-    hyper_value = db.Column(db.String)
-
-    def __init__(self, model_id, hyper_param, hyper_value):
-        self.model_id = model_id
-        self.hyper_param = hyper_param
-        self.hyper_value = hyper_value
+Initialize.initialize(app)
 
 @app.route('/tasks', methods=['GET'])
 def get_tasks():
@@ -47,25 +24,64 @@ def get_tasks():
 @app.route('/models', methods=['GET'])
 def get_models():
     try:
-        # Extract the 'filter' and 'author' query parameters if provided
         filter_param = request.args.get('filter')
         author_param = request.args.get('author')
+        taskid = Tasks.query.filter_by(task_id = filter_param).first().id
+        # Check if there are any entries in the Models table
+        models = Models.query.filter_by(task_id = taskid).order_by(Models.hits.desc()).limit(10).all()
 
-        # Construct the API URL with the parameters if they exist
-        api_url = 'https://huggingface.co/api/models?'
-        if filter_param:
-            api_url += f'filter={filter_param}&'
-        if author_param:
-            api_url += f'author={author_param}'
-
-        # Make a request to the Hugging Face API with the constructed URL
-        response = requests.get(api_url)
-
-        if response.status_code == 200:
-            models_data = response.json()
-            return jsonify(models_data)
+        if models:
+            # If there are entries, return the data from the database
+            model_data = [{'model_id': model.model_id,
+                           'memory': model.memory,
+                           'hits': model.hits} for model in models]
+            return jsonify(model_data)
         else:
-            return jsonify({'error': f'Request failed with status code {response.status_code}'})
+            # If there are no entries, fetch data from the Hugging Face API
+           
+            api_url = 'https://huggingface.co/api/models?'
+
+            if filter_param:
+                api_url += f'filter={filter_param}&'
+            if author_param:
+                api_url += f'author={author_param}'
+
+            response = requests.get(api_url)
+
+            if response.status_code == 200:
+                models_data = response.json()
+                model_data = []
+                # Store data in the Models table
+                for model in models_data:
+                    memory = ModelMemoryUtil.estimate_model_memory(model['modelId'])
+                    new_model = Models(task_id=taskid,
+                                       model_id=model['modelId'],
+                                       memory=memory,
+                                       hits=model['downloads'])
+                    db.session.add(new_model)
+                    model_data.append(new_model)
+            try:
+                db.session.commit()
+            except Exception as e: 
+                print(e)
+                db.session.rollback()
+
+                top_models = Models.query.filter_by(task_id = taskid).order_by(Models.hits.desc()).limit(10).all()
+                if not top_models:
+                    top_models = model_data
+                # Convert the query results to a list of dictionaries
+
+                res_data = []
+                for model in top_models:
+                    res_data.append({
+                        'model_id': model.model_id,
+                        'memory': model.memory,
+                        'hits': model.hits
+                    })
+
+                return jsonify(res_data)
+            else:
+                return jsonify({'error': f'Request failed with status code {response.status_code}'})
 
     except Exception as e:
         return jsonify({'error': str(e)})
@@ -122,6 +138,7 @@ def get_hyperparameters():
 
     except Exception as e:
         return jsonify({'error': str(e)})
+
 
 
 if __name__ == '__main__':
