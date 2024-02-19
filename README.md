@@ -103,3 +103,14 @@ Example entry:
 | 11 | flan-t5-small       | EPOCHS           | 5           |
 | 12 | flan-t5-small       | TRAIN_BATCH_SIZE | 8           |
 | 13 | flan-t5-small       | VALID_BATCH_SIZE | 8           |
+
+
+### Models Table README File Format
+
+| Column Name | Data Type | Description                                      |
+|-------------|-----------|--------------------------------------------------|
+| id          | INTEGER   | Primary key, auto-incremented                    |
+| task_id     | INTEGER   | ID of the associated task from tasks table       |
+| model_id    | TEXT      | Identifier for the model                         |
+| memory      | DOUBLE    | Size of the model in memory (in bytes)           |
+| hits        | DOUBLE    | Number of hits/downloads for the model           |
