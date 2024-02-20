@@ -26,6 +26,7 @@ class Seq2SeqTrainerWrapper:
         self.trainer = None
         self.summarizer = None
         self.max_source_length = None
+        self.max_target_length = None
         self.initialize()
         self.train_model()
 
@@ -50,7 +51,7 @@ class Seq2SeqTrainerWrapper:
                 batched=True,
                 remove_columns=["dialogue", "summary"]
             )
-            max_target_length = max([len(x) for x in tokenized_targets["input_ids"]])
+            self.max_target_length = max([len(x) for x in tokenized_targets["input_ids"]])
 
             # Model initialization
             self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_id)
@@ -67,7 +68,7 @@ class Seq2SeqTrainerWrapper:
             # Additional setup as needed
 
             # For example, initialize the summarizer pipeline
-            self.summarizer = pipeline("summarization", model="philschmid/flan-t5-base-samsum", device=0)
+            #self.summarizer = pipeline("summarization", model="philschmid/flan-t5-base-samsum")
 
             # You might want to initialize other components like the trainer, training_args, etc., here
 
@@ -76,7 +77,7 @@ class Seq2SeqTrainerWrapper:
         try:
             # Additional setup for training
             model = AutoModelForSeq2SeqLM.from_pretrained(self.model_id)
-
+            repository_id = f"{self.model_id.split('/')[1]}-{self.dataset_id}"
             # Define training args
             training_args = Seq2SeqTrainingArguments(
                 per_device_train_batch_size=8,
@@ -100,15 +101,19 @@ class Seq2SeqTrainerWrapper:
                 hub_strategy="every_save",
                 #hub_model_id=repository_id,
                 hub_token=HfFolder.get_token(),
+                output_dir=repository_id,
+                
             )
+
+            tokenized_dataset = self.dataset.map(self.preprocess_function, batched=True, remove_columns=["dialogue", "summary", "id"])
 
             # Create Trainer instance
             trainer = Seq2SeqTrainer(
                 model=model,
                 args=training_args,
                 data_collator=self.data_collator,
-                train_dataset=self.tokenized_dataset["train"],
-                eval_dataset=self.tokenized_dataset["test"],
+                train_dataset=tokenized_dataset["train"],
+                eval_dataset=tokenized_dataset["test"],
                 compute_metrics=self.compute_metrics,  # Make sure to define compute_metrics
             )
 
@@ -116,7 +121,7 @@ class Seq2SeqTrainerWrapper:
             trainer.train()
 
             # You might want to save the trained model or perform other post-training tasks here
-            tokenized_dataset = self.dataset.map(self.preprocess_function, batched=True, remove_columns=["dialogue", "summary", "id"])
+           
             print(f"Keys of tokenized dataset: {list(tokenized_dataset['train'].features)}")
 
 
