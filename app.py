@@ -87,23 +87,29 @@ def get_models():
 @app.route('/datasets', methods=['GET'])
 def get_datasets():
     try:
-        # Extract task_id from the query parameters
-        task_id = request.args.get('task_id')
+        # Extract filter parameter from the query string
+        filter_param = request.args.get('filter')
 
-        if task_id:
-            # Query the Datasets table for dataset_name based on task_id
-            query = text("SELECT dataset_name FROM Datasets WHERE task_id = :task_id")
-           
-            result = db.session.execute(query, {'task_id': task_id})
-            dataset_names = [row[0] for row in result.fetchall()]
+        # Construct the API URL
+        api_url = 'https://huggingface.co/api/datasets?'
+        if filter_param:
+            api_url += f'filter={filter_param}&'
+            api_url += f'sort=downloads&'
+            api_url += f'direction=-1&'
+            api_url += f'limit=20&'
 
-            if dataset_names:
-                return jsonify({'datasets': dataset_names})
-            else:
-                return jsonify({'error': 'Dataset not found for the given task_id'})
-
+        # Send GET request to the Hugging Face API
+        response = requests.get(api_url)
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+        # Parse the JSON response
+            datasets = response.json()
+        # Extract only the dataset IDs from the response
+            dataset_ids = [dataset['id'] for dataset in datasets]
+            return jsonify({'datasets': dataset_ids})
         else:
-            return jsonify({'error': 'task_id parameter is required'})
+            return jsonify({'error': 'Failed to fetch datasets from Hugging Face API'})
 
     except Exception as e:
         return jsonify({'error': str(e)})
