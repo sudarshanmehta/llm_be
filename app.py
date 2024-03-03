@@ -4,6 +4,7 @@ from sqlalchemy import text
 import requests
 from models import *
 from util import *
+from train_script import Seq2SeqTrainerWrapper
 
 app = Flask(__name__)
 CORS(app)
@@ -140,6 +141,32 @@ def get_hyperparameters():
         else:
             return jsonify({'error': 'model_id parameter is required'})
 
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+
+@app.route('/train_model', methods=['POST'])
+def train_model():
+    try:
+        # Get data from the request's JSON payload
+        data = request.json
+
+        # Extract required parameters
+        dataset = data.get('dataset')
+        model_id = data.get('model_id')
+        #training_args = data.get('training_args')
+
+        # Check if all required parameters are provided
+        if not dataset or not model_id:
+            return jsonify({'error': 'Missing required parameters. Please provide dataset, model_id, and training_args'})
+
+        # Create an instance of Seq2SeqTrainerWrapper if not already created
+        seq2seq_trainer_instance = Seq2SeqTrainerWrapper(dataset_id=dataset, model_id=model_id, training_args=None)
+        # Trigger training using the exposed instance
+        seq2seq_trainer_instance.train_model()
+
+        return jsonify({'success': f'Training model with dataset'})
+    
     except Exception as e:
         return jsonify({'error': str(e)})
 
