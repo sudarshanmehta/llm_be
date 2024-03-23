@@ -5,13 +5,18 @@ import requests
 from models import *
 from util import *
 from train_script import Seq2SeqTrainerWrapper
+from auth_controller import *
+from config import Config
 
 app = Flask(__name__)
 CORS(app)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///llm.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = Config.SQLALCHEMY_DATABASE_URI
 Initialize.initialize(app)
+AuthenticationController(app)
+
 
 @app.route('/tasks', methods=['GET'])
+@token_required
 def get_tasks():
     try:
         tasks = Tasks.query.all()
@@ -21,7 +26,9 @@ def get_tasks():
     except Exception as e:
         return jsonify({'error': str(e)})
 
+
 @app.route('/models', methods=['GET'])
+@token_required
 def get_models():
     try:
         filter_param = request.args.get('filter')
@@ -117,6 +124,7 @@ def get_datasets():
 
 
 @app.route('/hyperparameters', methods=['GET'])
+@token_required
 def get_hyperparameters():
     try:
         # Extract the 'model_id' parameter from the request
@@ -146,6 +154,7 @@ def get_hyperparameters():
 
 
 @app.route('/train_model', methods=['POST'])
+@token_required
 def train_model():
     try:
         # Get data from the request's JSON payload
@@ -169,7 +178,6 @@ def train_model():
     
     except Exception as e:
         return jsonify({'error': str(e)})
-
 
 
 if __name__ == '__main__':
