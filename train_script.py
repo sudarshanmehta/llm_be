@@ -84,11 +84,11 @@ class Seq2SeqTrainerWrapper:
                 per_device_eval_batch_size=8,
                 predict_with_generate=True,
                 fp16=False, # Overflows with fp16
-                learning_rate=5e-5,
+                learning_rate=self.training_args['learning_rate'],
                 num_train_epochs=5,
                 # logging & evaluation strategies
                 #logging_dir=f"{repository_id}/logs",
-                logging_strategy="steps",
+                logging_strategy=self.training_args['logging_strategy'],
                 logging_steps=500,
                 evaluation_strategy="epoch",
                 save_strategy="epoch",

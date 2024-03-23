@@ -89,7 +89,7 @@ def get_models():
 def get_datasets():
     try:
         # Extract filter parameter from the query string
-        filter_param = request.args.get('filter')
+        filter_param = request.args.get('task_id')
 
         # Construct the API URL
         api_url = 'https://huggingface.co/api/datasets?'
@@ -154,14 +154,14 @@ def train_model():
         # Extract required parameters
         dataset = data.get('dataset')
         model_id = data.get('model_id')
-        #training_args = data.get('training_args')
+        training_args = data.get('training_args')
 
         # Check if all required parameters are provided
         if not dataset or not model_id:
             return jsonify({'error': 'Missing required parameters. Please provide dataset, model_id, and training_args'})
 
         # Create an instance of Seq2SeqTrainerWrapper if not already created
-        seq2seq_trainer_instance = Seq2SeqTrainerWrapper(dataset_id=dataset, model_id=model_id, training_args=None)
+        seq2seq_trainer_instance = Seq2SeqTrainerWrapper(dataset_id=dataset, model_id=model_id, training_args=training_args)
         # Trigger training using the exposed instance
         seq2seq_trainer_instance.train_model()
 
