@@ -16,6 +16,14 @@ class AuthenticatorService:
         login_response = self.supabase.auth.sign_in(email=email, password=password)
         return login_response['status_code'] == 200, login_response['access_token'] if login_response['status_code'] == 200 else None
 
+    def logout(self):
+        try:
+            self.supabase.auth.sign_out()
+            return True  # Logout operation completed without error
+        except Exception as e:
+            print(f"Error occurred during logout: {e}")
+            return False  # Logout operation failed
+
     def validate_token(self,token):
         auth_response = self.verify_access_token(token)
         return auth_response

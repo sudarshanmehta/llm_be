@@ -30,6 +30,14 @@ def AuthenticationController(app):
             return jsonify({'message': 'Login successful', 'token': token}), 200
         else:
             return jsonify({'error': 'Login failed'}), 401
+    
+    @app.route('/logout', methods=['POST'])
+    def logout():
+        success = auth.logout()
+        if success:
+            return jsonify({'message': 'Logout successful'}), 200
+        else:
+            return jsonify({'error': 'Logout failed'}), 401
 
 
 def token_required(func):
