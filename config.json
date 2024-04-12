@@ -1,1 +1,20 @@
-[{"Config": {"MultiLLM": {"llms": [{"file": "models/FlanT5.py", "class_name": "FlanT5", "model": "google/flan-t5-base"}, {"file": "models/LLama.py", "class_name": "Llama", "model": "openlm-research/open_llama_3b_v2"}, {"file": "models/Gemma.py", "class_name": "Gemma", "model": "google/gemma-7b"}]}}}]
+[
+  {"Config": 
+  {"MultiLLM": 
+    {"llms": 
+      [{"file": "models/FlanT5.py", 
+        "class_name": "FlanT5", 
+        "model": "google/flan-t5-base"
+      }, 
+        {"file": "models/LLama.py", 
+        "class_name": "Llama",
+        "model": "openlm-research/open_llama_3b_v2"
+        },
+        {"file": "models/Gemma.py",
+        "class_name": "Gemma",
+        "model": "google/gemma-7b"}
+      ]
+    }
+  }
+}
+]
