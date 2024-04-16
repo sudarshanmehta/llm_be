@@ -1,6 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
 import re
+import pandas as pd
+from config import Config
+from io import BytesIO
 
 class ModelMemoryUtil:
     @staticmethod
@@ -30,3 +33,35 @@ class ModelMemoryUtil:
         except Exception as e:
             print(f"Error occurred while estimating model memory usage: {e}")
             return None
+
+class FileHandlingUtil:
+    @staticmethod
+    def validate_data(df):
+        if 'text' in df.columns and 'label' in df.columns:
+            # Perform additional validation if needed
+            return True
+        else:
+            return False
+    
+    @staticmethod
+    def download_file(file_path):
+        bucket_name = 'user_data'
+        url = f"{Config.SUPABASE_URL}/storage/v1/object/{bucket_name}/{file_path}"
+        headers = {
+            "authorization": Config.SUPABASE_KEY
+        }
+        response = requests.get(url, headers=headers, stream=True)
+        return response
+
+    @staticmethod
+    def parse_file(response, file_path):
+        if response.status_code == 200:
+            content = response.content
+            if file_path.endswith('.xlsx'):
+                return pd.read_excel(BytesIO(content))
+            elif file_path.endswith('.csv'):
+                return pd.read_csv(BytesIO(content))
+            else:
+                return None  # Unsupported file format
+        else:
+            return None  # File not found

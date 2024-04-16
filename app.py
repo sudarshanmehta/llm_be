@@ -179,6 +179,19 @@ def train_model():
     except Exception as e:
         return jsonify({'error': str(e)})
 
+@app.route('/files/<path:file_path>', methods=['POST'])
+@token_required
+def serve_file(file_path):
+    response = FileHandlingUtil.download_file(file_path)
+    df = FileHandlingUtil.parse_file(response, file_path)
+    if df is not None:
+        if FileHandlingUtil.validate_data(df):
+            return jsonify({"message": "Validation successful"})
+        else:
+            return 'Invalid file format. Columns for text and label not found.', 400
+    else:
+        return 'File not found', 404
+
 
 if __name__ == '__main__':
     app.run(debug=True)
