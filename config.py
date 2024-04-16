@@ -1,4 +1,4 @@
 class Config:
-    SUPABASE_URL = 'https://olrhzjvgblqaqoctbooi.supabase.co'
-    SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9scmh6anZnYmxxYXFvY3Rib29pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTExNjQwNjIsImV4cCI6MjAyNjc0MDA2Mn0.m47XH83j10w4X0MW1p6aPjx19D_AZsguVHRAjuphLTI'
+    SUPABASE_URL = 'https://ykchgtnctjbwfgblfspe.supabase.co'
+    SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrY2hndG5jdGpid2ZnYmxmc3BlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTMyMDIxNzYsImV4cCI6MjAyODc3ODE3Nn0.44aBhCG2xiUr8EABYCDpNl6yzkQqQV8djf-cg45jYL8'
     SQLALCHEMY_DATABASE_URI = 'sqlite:///llm.db'
