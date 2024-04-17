@@ -4,13 +4,19 @@ from sqlalchemy import text
 import requests
 from models import *
 from util import *
+from train_script import Seq2SeqTrainerWrapper
+from auth_controller import *
+from config import Config
 
 app = Flask(__name__)
 CORS(app)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///llm.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = Config.SQLALCHEMY_DATABASE_URI
 Initialize.initialize(app)
+AuthenticationController(app)
+
 
 @app.route('/tasks', methods=['GET'])
+@token_required
 def get_tasks():
     try:
         tasks = Tasks.query.all()
@@ -20,7 +26,9 @@ def get_tasks():
     except Exception as e:
         return jsonify({'error': str(e)})
 
+
 @app.route('/models', methods=['GET'])
+@token_required
 def get_models():
     try:
         filter_param = request.args.get('filter')
@@ -88,7 +96,7 @@ def get_models():
 def get_datasets():
     try:
         # Extract filter parameter from the query string
-        filter_param = request.args.get('filter')
+        filter_param = request.args.get('task_id')
 
         # Construct the API URL
         api_url = 'https://huggingface.co/api/datasets?'
@@ -116,6 +124,7 @@ def get_datasets():
 
 
 @app.route('/hyperparameters', methods=['GET'])
+@token_required
 def get_hyperparameters():
     try:
         # Extract the 'model_id' parameter from the request
@@ -143,6 +152,45 @@ def get_hyperparameters():
     except Exception as e:
         return jsonify({'error': str(e)})
 
+
+@app.route('/train_model', methods=['POST'])
+@token_required
+def train_model():
+    try:
+        # Get data from the request's JSON payload
+        data = request.json
+
+        # Extract required parameters
+        dataset = data.get('dataset')
+        model_id = data.get('model_id')
+        training_args = data.get('training_args')
+
+        # Check if all required parameters are provided
+        if not dataset or not model_id:
+            return jsonify({'error': 'Missing required parameters. Please provide dataset, model_id, and training_args'})
+
+        # Create an instance of Seq2SeqTrainerWrapper if not already created
+        seq2seq_trainer_instance = Seq2SeqTrainerWrapper(dataset_id=dataset, model_id=model_id, training_args=training_args)
+        # Trigger training using the exposed instance
+        seq2seq_trainer_instance.train_model()
+
+        return jsonify({'success': f'Training model with dataset'})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/files/<path:file_path>', methods=['POST'])
+@token_required
+def serve_file(file_path):
+    response = FileHandlingUtil.download_file(file_path)
+    df = FileHandlingUtil.parse_file(response, file_path)
+    if df is not None:
+        if FileHandlingUtil.validate_data(df):
+            return jsonify({"message": "Validation successful"})
+        else:
+            return 'Invalid file format. Columns for text and label not found.', 400
+    else:
+        return 'File not found', 404
 
 
 if __name__ == '__main__':
