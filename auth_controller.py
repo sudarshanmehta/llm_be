@@ -1,9 +1,8 @@
-from flask import Flask, jsonify, request
+from flask import jsonify, request
 from auth_service import AuthenticatorService
-from config import Config
 from functools import wraps
 # Initialize AuthenticatorService with Supabase credentials
-auth = AuthenticatorService(Config.SUPABASE_URL, Config.SUPABASE_KEY)
+auth = AuthenticatorService()
 
 def AuthenticationController(app):
 

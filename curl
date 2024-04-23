@@ -1,6 +1,0 @@
-curl --location 'http://localhost:5000/train_model' \
---header 'Content-Type: application/json' \
---data '{
-    "model_id": "google/flan-t5-base",
-    "dataset": "samsum"
-}'

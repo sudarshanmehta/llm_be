@@ -1,10 +1,10 @@
 import requests
-from supabase_py import create_client
 from config import Config
+from supabase_client import supabase_client
 
 class AuthenticatorService:
-    def __init__(self, supabase_url, supabase_key):
-        self.supabase = create_client(supabase_url, supabase_key)
+    def __init__(self):
+        self.supabase = supabase_client
 
     def signup(self, email, password):
         # Sign up user with email and password
