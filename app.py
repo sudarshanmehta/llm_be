@@ -1,17 +1,14 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from sqlalchemy import text
 import requests
-from models import *
 from util import *
 from train_script import Seq2SeqTrainerWrapper
-from auth_controller import *
+from auth_controller import token_required, AuthenticationController
 from config import Config
+from supabase_client import supabase_client
 
 app = Flask(__name__)
 CORS(app)
-app.config["SQLALCHEMY_DATABASE_URI"] = Config.SQLALCHEMY_DATABASE_URI
-Initialize.initialize(app)
 AuthenticationController(app)
 
 
@@ -19,8 +16,12 @@ AuthenticationController(app)
 @token_required
 def get_tasks():
     try:
-        tasks = Tasks.query.all()
-        task_list = [{'Task': task.task, 'ID': task.task_id, 'Description': task.description} for task in tasks]
+        # Fetch tasks data from Supabase
+        tasks = supabase_client.table('tasks').select('*').execute().get('data', [])
+
+        # Construct response JSON
+        task_list = [{'Task': task['task'], 'ID': task['task_id'], 'Description': task['description']} for task in tasks]
+
         return jsonify({'tasks': task_list})
 
     except Exception as e:
@@ -33,15 +34,15 @@ def get_models():
     try:
         filter_param = request.args.get('filter')
         author_param = request.args.get('author')
-        taskid = Tasks.query.filter_by(task_id = filter_param).first().id
+        task_id = supabase_client.table('tasks').select('id').eq('task_id', filter_param).execute().get('data', [])[0].get('id')
         # Check if there are any entries in the Models table
-        models = Models.query.filter_by(task_id = taskid).order_by(Models.hits.desc()).limit(10).all()
+        models = supabase_client.table('models').select('*').eq('task_id', str(task_id)).order('hits', desc=True).limit(10).execute().get('data', [])
 
         if models:
             # If there are entries, return the data from the database
-            model_data = [{'model_id': model.model_id,
-                           'memory': model.memory,
-                           'hits': model.hits} for model in models]
+            model_data = [{'model_id': model['model'],
+                           'memory': model['memory'],
+                           'hits': model['hits']} for model in models]
             return jsonify(model_data)
         else:
             # If there are no entries, fetch data from the Hugging Face API
@@ -64,15 +65,18 @@ def get_models():
                 # Store data in the Models table
                 for model in models_data:
                     memory = ModelMemoryUtil.estimate_model_memory(model['modelId'])
-                    new_model = Models(task_id=taskid,
-                                       model_id=model['modelId'],
-                                       memory=memory,
-                                       hits=model['downloads'])
-                    db.session.add(new_model)
+                    new_model = {
+                                'task_id': task_id,
+                                'model': model['modelId'],
+                                'memory': memory,
+                                'hits': model['downloads']
+                            }
+
                     model_data.append(new_model)
             
-                db.session.commit()
-                top_models = Models.query.filter_by(task_id = taskid).order_by(Models.hits.desc()).limit(10).all()
+                supabase_client.table('models').insert(model_data).execute()
+                top_models = supabase_client.table('models').select('*').eq('task_id', str(task_id)).order('hits', desc=True).limit(10).execute().get('data', [])
+
                 if not top_models:
                     top_models = model_data
                 # Convert the query results to a list of dictionaries
@@ -80,10 +84,9 @@ def get_models():
                 res_data = []
                 for model in top_models:
                     res_data.append({
-                        'model_id': model.model_id,
-                        'memory': model.memory,
-                        'hits': model.hits
-                    })
+                        'model_id': model['model'],
+                           'memory': model['memory'],
+                           'hits': model['hits']})
 
                 return jsonify(res_data)
             else:
@@ -128,23 +131,20 @@ def get_datasets():
 def get_hyperparameters():
     try:
         # Extract the 'model_id' parameter from the request
-        model_id = request.args.get('model_id')
-
+        model = request.args.get('model_id')
+        model_id = supabase_client.table('models').select('id').eq('model', str(model)).execute().get('data',[])[0].get('id')
+        user_id = supabase_client.auth.current_user['id']
         if model_id:
             # Query the Hyperparameters table for all entries with the specified model_id
-            hyperparameters_data = Hyperparameters.query.filter_by(model_id = model_id).all()
+            hyperparameters_data = supabase_client.table('user_hyper_params').select('*').eq('model_id',str(model_id)).eq('user_id',user_id).execute().get('data',[])
 
-            if hyperparameters_data:
+            if not hyperparameters_data:
+                hyperparameters_data = supabase_client.table('hyper_params').select('*').execute().get('data',[])
                 # If the model_id exists, return its hyperparameters
-                hyperparameters_list = [{'model_id': hyper.model_id,
-                                        'hyper_param': hyper.hyper_param,
-                                        'hyper_value': hyper.hyper_value} for hyper in hyperparameters_data]
-            else:
-                # If the model_id does not exist, return standard hyperparameters
-                standard_hyperparameters_data = Hyperparameters.query.filter_by(model_id = 'standard').all()
-                hyperparameters_list = [{'model_id': standard_hyperparameters.model_id,
-                                'hyper_param': standard_hyperparameters.hyper_param,
-                                'hyper_value': standard_hyperparameters.hyper_value}for standard_hyperparameters in standard_hyperparameters_data]
+            hyperparameters_list = [{'model_id': model,
+                                    'hyper_param': hyper['hyper_param'],
+                                    'hyper_value': hyper['hyper_value']} for hyper in hyperparameters_data]
+        
             return jsonify(hyperparameters_list)
         else:
             return jsonify({'error': 'model_id parameter is required'})
@@ -165,6 +165,8 @@ def train_model():
         model_id = data.get('model_id')
         training_args = data.get('training_args')
 
+        save_user_hyper_params(model_id,training_args)
+
         # Check if all required parameters are provided
         if not dataset or not model_id:
             return jsonify({'error': 'Missing required parameters. Please provide dataset, model_id, and training_args'})
@@ -178,6 +180,25 @@ def train_model():
     
     except Exception as e:
         return jsonify({'error': str(e)})
+
+def save_user_hyper_params(model, training_args):
+    model_id = supabase_client.table('models').select('id').eq('model', str(model)).execute().get('data',[])[0].get('id')
+    user_id = supabase_client.auth.current_user['id']
+    hyperparameters_data = supabase_client.table('user_hyper_params').select('*').eq('model_id',str(model_id)).eq('user_id',user_id).execute().get('data',[])
+
+    if training_args and hyperparameters_data:
+        try:
+            supabase_client.table('user_hyper_params').delete().eq('model_id',str(model_id)).eq('user_id',user_id).execute()
+        except Exception as e:
+            print(e)
+
+    # If the model_id exists, return its hyperparameters
+    hyperparameters_list = [{'model_id': model_id,
+                            'hyper_param': key,
+                            'hyper_value': value,
+                            'user_id' : user_id} for key, value in training_args.items()]
+    supabase_client.table('user_hyper_params').insert(hyperparameters_list).execute()
+
 
 @app.route('/files/<path:file_path>', methods=['POST'])
 @token_required
