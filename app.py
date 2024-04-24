@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
 from util import *
-from train_script import Seq2SeqTrainerWrapper
+from llm_wrapper import LLMWrapper
 from auth_controller import token_required, AuthenticationController
 from config import Config
 from supabase_client import supabase_client
@@ -167,14 +167,10 @@ def train_model():
 
         save_user_hyper_params(model_id,training_args)
 
-        # Check if all required parameters are provided
         if not dataset or not model_id:
             return jsonify({'error': 'Missing required parameters. Please provide dataset, model_id, and training_args'})
 
-        # Create an instance of Seq2SeqTrainerWrapper if not already created
-        seq2seq_trainer_instance = Seq2SeqTrainerWrapper(dataset_id=dataset, model_id=model_id, training_args=training_args)
-        # Trigger training using the exposed instance
-        seq2seq_trainer_instance.train_model()
+        LLMWrapper(dataset_id=dataset, model_id="google/flan-t5-base", hyperparameters=training_args)
 
         return jsonify({'success': f'Training model with dataset'})
     
