@@ -170,7 +170,7 @@ def train_model():
         if not dataset or not model_id:
             return jsonify({'error': 'Missing required parameters. Please provide dataset, model_id, and training_args'})
 
-        LLMWrapper(dataset_id=dataset, model_id="google/flan-t5-base", hyperparameters=training_args)
+        LLMWrapper(dataset_id=dataset, model_id=model_id, hyperparameters=training_args)
 
         return jsonify({'success': f'Training model with dataset'})
     
