@@ -209,6 +209,26 @@ def serve_file(file_path):
     else:
         return 'File not found', 404
 
+@app.route('/model_status', methods=['GET'])
+@token_required
+def get_model_status():
+    try:
+        user_id = supabase_client.auth.current_user['id']
+        # Fetch tasks data from Supabase
+        status = supabase_client.table('trained_models').select('*').eq().eq('user_id',user_id).get('data', [])
+        statuses = []
+        # Construct response JSON
+        for st in status:
+            model_id = str(st['model_id'])
+            model_data = supabase_client.table('models').select('model').eq('id', model_id).execute().get('data', [])
+            if model_data:
+                model = model_data[0]['model']
+                statuses.append({'model': model, 'status': st['status']})
+        return jsonify({'model_status': statuses})
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
 
 if __name__ == '__main__':
     app.run(debug=True)
