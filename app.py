@@ -215,7 +215,7 @@ def get_model_status():
     try:
         user_id = supabase_client.auth.current_user['id']
         # Fetch tasks data from Supabase
-        status = supabase_client.table('trained_models').select('*').eq().eq('user_id',user_id).get('data', [])
+        status = supabase_client.table('trained_models').select('*').eq('user_id',user_id).execute().get('data', [])
         statuses = []
         # Construct response JSON
         for st in status:
