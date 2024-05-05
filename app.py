@@ -27,6 +27,43 @@ def get_tasks():
     except Exception as e:
         return jsonify({'error': str(e)})
 
+@app.route('/search_models', methods=['GET'])
+@token_required
+def search_models():
+    try:
+        filter_param = request.args.get('filter')
+        search_param = request.args.get('model_id')
+        api_url = 'https://huggingface.co/api/models?'
+        if search_param and filter_param:
+            api_url += f'search={search_param}&'
+            api_url += f'filter={filter_param}&'
+            api_url += f'sort=downloads&'
+            api_url += f'direction=-1&'
+            api_url += f'limit=10&'
+        else:
+            return jsonify({'error':'missing model_id or task_id'})
+
+        response = requests.get(api_url)
+
+        if response.status_code == 200:
+            models_data = response.json()
+            model_data = []
+            # Store data in the Models table
+            for model in models_data:
+                memory = ModelMemoryUtil.estimate_model_memory(model['modelId'])
+                new_model = {
+                            'model_id': model['modelId'],
+                            'memory': memory,
+                            'hits': model['downloads']
+                        }
+
+                model_data.append(new_model)
+            return jsonify(model_data)
+        else:
+            return jsonify({'error' : 'unable to fetch models from hugging face'})
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 @app.route('/models', methods=['GET'])
 @token_required
@@ -96,18 +133,23 @@ def get_models():
         return jsonify({'error': str(e)})
 
 @app.route('/datasets', methods=['GET'])
+@token_required
 def get_datasets():
     try:
         # Extract filter parameter from the query string
         filter_param = request.args.get('task_id')
-
+        search_param = request.args.get('dataset_id')
         # Construct the API URL
         api_url = 'https://huggingface.co/api/datasets?'
+        if search_param:
+            api_url += f'search={search_param}&'
         if filter_param:
             api_url += f'filter={filter_param}&'
             api_url += f'sort=downloads&'
             api_url += f'direction=-1&'
             api_url += f'limit=20&'
+        else:
+            return jsonify({'error': 'Task_Id missing'})
 
         # Send GET request to the Hugging Face API
         response = requests.get(api_url)
