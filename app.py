@@ -73,16 +73,10 @@ def get_models():
 
             # Insert fetched models into the database
             if task_id:
-                supabase_client.table('models').insert(model_data).execute()
-
-            # Fetch top models from the database
-            top_models = supabase_client.table('models').select('*').eq('task_id', str(task_id)).order('hits', desc=True).limit(10).execute().get('data', [])
-
-            if not top_models:
-                top_models = model_data
+               fst = supabase_client.table('models').insert(model_data).execute()
 
             # Convert the query results to a list of dictionaries
-            return prep_data(top_models)
+            return prep_data(model_data)
         else:
             return jsonify({'error': f'Request failed with status code {response.status_code}'})
 
