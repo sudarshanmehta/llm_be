@@ -173,23 +173,22 @@ def get_datasets():
 def get_hyperparameters():
     try:
         # Extract the 'model_id' parameter from the request
+        hyperparameters_data = []
         model = request.args.get('model_id')
-        model_id = supabase_client.table('models').select('id').eq('model', str(model)).execute().get('data',[])[0].get('id')
+        model_id = supabase_client.table('models').select('id').eq('model', str(model)).execute().get('data',[])
         user_id = supabase_client.auth.current_user['id']
         if model_id:
             # Query the Hyperparameters table for all entries with the specified model_id
-            hyperparameters_data = supabase_client.table('user_hyper_params').select('*').eq('model_id',str(model_id)).eq('user_id',user_id).execute().get('data',[])
+            hyperparameters_data = supabase_client.table('user_hyper_params').select('*').eq('model_id',str(model_id[0].get('id'))).eq('user_id',user_id).execute().get('data',[])
 
-            if not hyperparameters_data:
-                hyperparameters_data = supabase_client.table('hyper_params').select('*').execute().get('data',[])
-                # If the model_id exists, return its hyperparameters
-            hyperparameters_list = [{'model_id': model,
-                                    'hyper_param': hyper['hyper_param'],
-                                    'hyper_value': hyper['hyper_value']} for hyper in hyperparameters_data]
-        
-            return jsonify(hyperparameters_list)
-        else:
-            return jsonify({'error': 'model_id parameter is required'})
+        if not hyperparameters_data:
+            hyperparameters_data = supabase_client.table('hyper_params').select('*').execute().get('data',[])
+            # If the model_id exists, return its hyperparameters
+        hyperparameters_list = [{'model_id': model,
+                                'hyper_param': hyper['hyper_param'],
+                                'hyper_value': hyper['hyper_value']} for hyper in hyperparameters_data]
+    
+        return jsonify(hyperparameters_list)
 
     except Exception as e:
         return jsonify({'error': str(e)})
