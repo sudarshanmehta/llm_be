@@ -48,18 +48,9 @@ def get_models():
         if author_param:
             api_url += f'author={author_param}&'
         if search_param:
-            # If search_param is present, query the database directly
-            existing_models = supabase_client.table('models').select('*').eq('model', f'{search_param}').order('hits', desc=True).limit(10).execute().get('data', [])
-            if existing_models:
-                return prep_data(existing_models)
-            # If no models found in the database, construct API URL for fetching from Hugging Face
             api_url += f'search={search_param}&'
-        if filter_param and not search_param:
-            models = supabase_client.table('models').select('*').eq('task_id', str(task_id)).order('hits', desc=True).limit(10).execute().get('data', [])
-            if models:
-                return prep_data(models)
-            # If no models found in the database, construct API URL for fetching from Hugging Face
-        api_url += f'filter={filter_param}&'
+        if filter_param:
+            api_url += f'filter={filter_param}&'
         api_url += f'sort=downloads&direction=-1&limit=10'
 
         # Fetch models from Hugging Face API
