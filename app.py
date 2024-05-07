@@ -27,110 +27,88 @@ def get_tasks():
     except Exception as e:
         return jsonify({'error': str(e)})
 
-@app.route('/search_models', methods=['GET'])
-@token_required
-def search_models():
-    try:
-        filter_param = request.args.get('filter')
-        search_param = request.args.get('model_id')
-        api_url = 'https://huggingface.co/api/models?'
-        if search_param and filter_param:
-            api_url += f'search={search_param}&'
-            api_url += f'filter={filter_param}&'
-            api_url += f'sort=downloads&'
-            api_url += f'direction=-1&'
-            api_url += f'limit=10&'
-        else:
-            return jsonify({'error':'missing model_id or task_id'})
-
-        response = requests.get(api_url)
-
-        if response.status_code == 200:
-            models_data = response.json()
-            model_data = []
-            # Store data in the Models table
-            for model in models_data:
-                memory = ModelMemoryUtil.estimate_model_memory(model['modelId'])
-                new_model = {
-                            'model_id': model['modelId'],
-                            'memory': memory,
-                            'hits': model['downloads']
-                        }
-
-                model_data.append(new_model)
-            return jsonify(model_data)
-        else:
-            return jsonify({'error' : 'unable to fetch models from hugging face'})
-
-    except Exception as e:
-        return jsonify({'error': str(e)})
 
 @app.route('/models', methods=['GET'])
 @token_required
 def get_models():
     try:
         filter_param = request.args.get('filter')
+        search_param = request.args.get('model_id')
         author_param = request.args.get('author')
-        task_id = supabase_client.table('tasks').select('id').eq('task_id', filter_param).execute().get('data', [])[0].get('id')
-        # Check if there are any entries in the Models table
-        models = supabase_client.table('models').select('*').eq('task_id', str(task_id)).order('hits', desc=True).limit(10).execute().get('data', [])
 
-        if models:
-            # If there are entries, return the data from the database
-            model_data = [{'model_id': model['model'],
-                           'memory': model['memory'],
-                           'hits': model['hits']} for model in models]
-            return jsonify(model_data)
-        else:
-            # If there are no entries, fetch data from the Hugging Face API
-           
-            api_url = 'https://huggingface.co/api/models?'
-            if filter_param:
-                api_url += f'filter={filter_param}&'
-                api_url += f'sort=downloads&'
-                api_url += f'direction=-1&'
-                api_url += f'limit=10&'
-            if author_param:
-                api_url += f'author={author_param}'
+        # Check if filter_param is present and fetch the task_id
+        task_id = None
+        if filter_param:
+            task_id = supabase_client.table('tasks').select('id').eq('task_id', filter_param).execute().get('data', [])[0].get('id')
 
+        # Initialize API URL
+        api_url = 'https://huggingface.co/api/models?'
 
-            response = requests.get(api_url)
+        # Construct API URL based on parameters
+        if author_param:
+            api_url += f'author={author_param}&'
+        if search_param:
+            # If search_param is present, query the database directly
+            existing_models = supabase_client.table('models').select('*').eq('model', f'{search_param}').order('hits', desc=True).limit(10).execute().get('data', [])
+            if existing_models:
+                return prep_data(existing_models)
+            # If no models found in the database, construct API URL for fetching from Hugging Face
+            api_url += f'search={search_param}&'
+        if filter_param and not search_param:
+            models = supabase_client.table('models').select('*').eq('task_id', str(task_id)).order('hits', desc=True).limit(10).execute().get('data', [])
+            if models:
+                return prep_data(models)
+            # If no models found in the database, construct API URL for fetching from Hugging Face
+        api_url += f'filter={filter_param}&'
+        api_url += f'sort=downloads&direction=-1&limit=10'
 
-            if response.status_code == 200:
-                models_data = response.json()
-                model_data = []
-                # Store data in the Models table
-                for model in models_data:
-                    memory = ModelMemoryUtil.estimate_model_memory(model['modelId'])
-                    new_model = {
-                                'task_id': task_id,
-                                'model': model['modelId'],
-                                'memory': memory,
-                                'hits': model['downloads']
-                            }
+        # Fetch models from Hugging Face API
+        response = requests.get(api_url)
 
-                    model_data.append(new_model)
-            
+        if response.status_code == 200:
+            models_data = response.json()
+            model_data = []
+
+            # Store data in the Models table and fetch top models
+            for model in models_data:
+                memory = ModelMemoryUtil.estimate_model_memory(model['modelId'])
+                new_model = {
+                    'task_id': task_id,
+                    'model': model['modelId'],
+                    'memory': memory,
+                    'hits': model['downloads']
+                }
+                model_data.append(new_model)
+
+            # Insert fetched models into the database
+            if task_id:
                 supabase_client.table('models').insert(model_data).execute()
-                top_models = supabase_client.table('models').select('*').eq('task_id', str(task_id)).order('hits', desc=True).limit(10).execute().get('data', [])
 
-                if not top_models:
-                    top_models = model_data
-                # Convert the query results to a list of dictionaries
+            # Fetch top models from the database
+            top_models = supabase_client.table('models').select('*').eq('task_id', str(task_id)).order('hits', desc=True).limit(10).execute().get('data', [])
 
-                res_data = []
-                for model in top_models:
-                    res_data.append({
-                        'model_id': model['model'],
-                           'memory': model['memory'],
-                           'hits': model['hits']})
+            if not top_models:
+                top_models = model_data
 
-                return jsonify(res_data)
-            else:
-                    return jsonify({'error': f'Request failed with status code {response.status_code}'})
+            # Convert the query results to a list of dictionaries
+            return prep_data(top_models)
+        else:
+            return jsonify({'error': f'Request failed with status code {response.status_code}'})
 
     except Exception as e:
         return jsonify({'error': str(e)})
+
+
+def prep_data(list):
+    res_data = []
+    for model in list:
+        res_data.append({
+            'model_id': model['model'],
+            'memory': model['memory'],
+            'hits': model['hits']
+        })
+    return jsonify(res_data)
+
 
 @app.route('/datasets', methods=['GET'])
 @token_required
