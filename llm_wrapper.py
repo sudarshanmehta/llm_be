@@ -57,6 +57,7 @@ class LLMWrapper:
         user_id = supabase_client.auth.current_user['id']
         insert_data = { 'user_id' : user_id,
                         'model_id' : model_id,
+                        'dataset_id' : self.dataset_id,
                         'status' : False }
         supabase_client.table("trained_models").insert(insert_data).execute()
 
