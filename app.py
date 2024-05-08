@@ -227,7 +227,7 @@ def get_model_status():
             model_data = supabase_client.table('models').select('model').eq('id', model_id).execute().get('data', [])
             if model_data:
                 model = model_data[0]['model']
-                statuses.append({'model': model, 'status': st['status']})
+                statuses.append({'model': model, 'status': st['status'], 'dataset' : st['dataset_id']})
         return jsonify({'model_status': statuses})
 
     except Exception as e:
@@ -235,4 +235,4 @@ def get_model_status():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
