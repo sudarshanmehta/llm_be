@@ -9,14 +9,19 @@
                         "model": "google/flan-t5-base"
                     },
                     {
-                        "file": "models/Llama.py",
+                        "file": "models/llama.py",
                         "class_name": "Llama",
                         "model": "openlm-research/open_llama_3b_v2"
                     },
                     {
-                        "file": "models/Gemma.py",
+                        "file": "models/gemma.py",
                         "class_name": "Gemma",
                         "model": "google/gemma-7b"
+                    },
+                    {
+                        "file": "models/bert.py",
+                        "class_name": "Bert",
+                        "model": "google-bert/bert-base-uncased"
                     }
                 ]
             }
