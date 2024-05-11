@@ -20,7 +20,7 @@ from huggingface_hub import HfFolder
 
 class Bert:
   def __init__(self, dataset_id, model_id, hyperparametes):
-    self.dataset_id = dataset_id
+    self.dataset_id = 'yelp_review_full'
     self.model_id = model_id
     self.dataset = None
     self.tokenizer = None
@@ -145,5 +145,3 @@ class Bert:
       except Exception as e:
         print(f"Error during summarization: {str(e)}")
         return None
-
-obj = Bert(dataset_id = 'yelp_review_full', model_id = 'bert-base-uncased')
