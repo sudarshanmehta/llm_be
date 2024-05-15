@@ -7,126 +7,110 @@ Original file is located at
     https://colab.research.google.com/drive/1LFp8VnQPsxrSSmxw9pxjqOc3jY5xxDYz
 """
 
-import numpy as np
-import pandas as pd
 import torch
 from datasets import load_dataset
-import os
 
-import nltk
-from nltk.tokenize import sent_tokenize
 import evaluate
-from random import randrange
 
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM, DataCollatorForSeq2Seq, TrainingArguments, Trainer, pipeline, BitsAndBytesConfig, GemmaForCausalLM, GemmaTokenizer
+from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, Trainer, BitsAndBytesConfig
 import peft
-from peft import LoraConfig, prepare_model_for_kbit_training, get_peft_model
-from huggingface_hub import HfFolder
+from peft import LoraConfig, get_peft_model, PeftModel, PeftConfig
+from huggingface_hub import HfFolder, login
 from trl import SFTTrainer
-from sentencepiece import SentencePieceProcessor
 
 class Gemma:
-    def __init__(self, dataset_id, model_id):
-      self.dataset_id = 'philschmid/dolly-15k-oai-style'
-      self.model_id = model_id
-      self.dataset = None
-      self.tokenizer_id = None
-      self.tokenizer = None
-      self.model = None
-      self.data_collator = None
-      self.training_args = None
-      self.training_args = None
-      self.trainer = None
-      self.summarizer = None
-      self.max_source_length = None
-      self.max_target_length = None
+    def __init__(self, dataset_id, model_id, hyperparameters):
+        self.dataset_id = 'philschmid/dolly-15k-oai-style'
+        self.model_id = model_id
+        self.dataset = None
+        self.tokenizer_id = None
+        self.tokenizer = None
+        self.model = None
+        self.training_args = None
+        self.trainer = None
+        self.peft_config = None
 
-      self.initialize()
-      self.sp_model = SentencePieceProcessor()
-      self.sp_model.LoadFromFile(str(self.vocab_file))
-      self.train_model()
+        self.initialize()
+        self.train_model()
 
     def initialize(self):
+        login(token="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", add_to_git_credential=True)
 
-      login(token="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", #Adding token here since gemma is part of a gated repo
-            add_to_git_credential=True)
+        self.dataset = load_dataset(self.dataset_id, split="train")
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True, bnb_4bit_use_double_quant=True, bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype=torch.bfloat16
+        )
 
-      self.dataset = load_dataset(self.dataset_id, split = "train")
+        # dataset_length = len(self.dataset)
+        # print("Dataset Length:", dataset_length)
 
-      self.tokenizer_id =  "philschmid/gemma-tokenizer-chatml"
+        self.tokenizer_id = "philschmid/gemma-tokenizer-chatml"
+        # Load model and tokenizer
+        self.model = AutoModelForCausalLM.from_pretrained(
+        self.model_id,
+        device_map="auto",
+        #attn_implementation="flash_attention_2",
+        torch_dtype=torch.bfloat16,
+        quantization_config=bnb_config
+    )
+        self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_id)
+        self.tokenizer.padding_side = 'right' # to prevent warnings
 
-      bnb_config = BitsAndBytesConfig(
-          load_in_4bit=True, bnb_4bit_use_double_quant=True, bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype=torch.bfloat16)
+        # # Model initialization
+        # self.model = GemmaForCausalLM.from_pretrained(self.model_id)
 
-      model = GemmaForCausalLM.from_pretrained(
-          self.model_id,
-          torch_dtype=torch.bfloat16,
-          use_cache=False,
-          use_flash_attention_2=False,
-          device_map='auto',
-          quantization_config=bnb_config,
-          )
-
-      self.tokenizer = GemmaTokenizer.from_pretrained(self.tokenizer_id)
-      self.tokenizer.pad_token = self.tokenizer.eos_token
-      self.tokenizer.padding_side = "right"
-
-      # Model initialization
-      self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_id)
-
-      # LoRA config based on QLoRA paper
-      self.peft_config = LoraConfig(
-                lora_alpha=8,
-              lora_dropout=0.05,
-              r=64,
-              bias="none",
-              task_type="CAUSAL_LM",
-      )
-
-
-      # self.model = prepare_model_for_kbit_training(self.model)
-
+        # LoRA config based on QLoRA paper & Sebastian Raschka experiment
+        self.peft_config = LoraConfig(
+            lora_alpha=8,
+            lora_dropout=0.05,
+            r=6,
+            bias="none",
+            target_modules="all-linear",
+            task_type="CAUSAL_LM",
+        )
 
     def train_model(self):
-      try:
-        # Additional setup for training
-        repository_id = f"{self.model_id.split('/')[1]}-{self.dataset_id}"
-        # Define training args
-        training_args = TrainingArguments(
-            output_dir="gemma-7b-dolly-chatml",
-            num_train_epochs=3,
-            per_device_train_batch_size=6,
-            gradient_accumulation_steps=2,
-            gradient_checkpointing=True,
-            optim="paged_adamw_32bit",
-            logging_steps=10,
-            save_strategy="epoch",
-            learning_rate=2e-4,
-            bf16=False,
-            fp16=False,
-            tf32=False,
-            max_grad_norm=0.3,
-            warmup_ratio=0.03,
-            lr_scheduler_type="constant",
-            warmup_steps=0,
-            save_total_limit=3,
-            disable_tqdm=False,  # disable tqdm since with packing values are in correct
+        try:
+            # Additional setup for training
+            repository_id = f"{self.model_id.split('/')[1]}-{self.dataset_id}"
+            # Define training args
+            args = TrainingArguments(
+                output_dir="gemma-7b-dolly-chatml", # directory to save and repository id
+                num_train_epochs=2,                     # number of training epochs
+                per_device_train_batch_size=1,          # batch size per device during training
+                gradient_accumulation_steps=2,          # number of steps before performing a backward/update pass
+                gradient_checkpointing=True,            # use gradient checkpointing to save memory
+                optim="adamw_torch_fused",              # use fused adamw optimizer
+                logging_steps=10,                       # log every 10 steps
+                save_strategy="epoch",                  # save checkpoint every epoch
+                bf16=True,                              # use bfloat16 precision
+                tf32=True,                              # use tf32 precision
+                learning_rate=2e-4,                     # learning rate, based on QLoRA paper
+                max_grad_norm=0.3,                      # max gradient norm based on QLoRA paper
+                warmup_ratio=0.03,                      # warmup ratio based on QLoRA paper
+                lr_scheduler_type="constant",           # use constant learning rate scheduler
+                push_to_hub=False,                       # push model to hub
+                report_to="tensorboard",                # report metrics to tensorboard
             )
 
-        # Create Trainer instance
-        trainer = SFTTrainer(
-            model=self.model,
-            train_dataset=self.dataset,
-            peft_config= self.peft_config,
-            tokenizer=self.tokenizer,
-            dataset_text_field="text",
-            max_seq_length=2048,
-            args=training_args,
-            packing=True,
+            max_seq_length = 1512 # max sequence length for model and packing of the dataset
+ 
+            trainer = SFTTrainer(
+                model=self.model,
+                args=args,
+                train_dataset=self.dataset,
+                peft_config=self.peft_config,
+                max_seq_length=max_seq_length,
+                tokenizer=self.tokenizer,
+                packing=True,
+                dataset_kwargs={
+                    "add_special_tokens": False, # We template with special tokens
+                    "append_concat_token": False, # No need to add additional separator token
+                }
             )
 
-        # Start training
-        trainer.train()
+            # Start training
+            trainer.train()
 
-      except Exception as e:
-        print(f"Error during training: {str(e)}")
+        except Exception as e:
+            print(f"Error during training: {str(e)}")
